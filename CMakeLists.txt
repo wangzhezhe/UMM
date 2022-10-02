@@ -8,9 +8,9 @@ IOImage
 vtkFiltersCore
 )
 
-add_executable(DataGenerator DataGenerator.cpp)
-target_link_libraries(DataGenerator ${VTK_LIBRARIES})
+add_executable(addVar addVar.cpp)
+target_link_libraries(addVar ${VTK_LIBRARIES})
 
 find_package(mgard)
-add_executable(NaiveMgard NaiveMgard.cpp)
-target_link_libraries(NaiveMgard ${VTK_LIBRARIES} mgard::mgard)
+add_executable(resampleCompress resampleCompress.cpp)
+target_link_libraries(resampleCompress ${VTK_LIBRARIES} mgard::mgard)

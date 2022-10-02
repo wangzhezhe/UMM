@@ -16,15 +16,9 @@ cmake .. -Dmgard_DIR=/home/zw/cworkspace/build/MGARD/install -Dzstd_DIR=~/cworks
 ```
 
 
-questions:
+### Examples
 
-naive way to process the unstructructed data, how to put them into mgard
-unstrucutred supported for mgard?
-
-construct the baseline, derived properties examples?
-
-how about the 2d or 3d case, coordinates how to do that?
-
-data set, do not too symetric
-
-try to validate if the new added points are zero? from the mgard's perspective
+```
+$./addVar ../datasets/sampleUmesh.vtk 
+$./resampleCompress ../datasets/sampleUmeshWithVar.vtk
+```

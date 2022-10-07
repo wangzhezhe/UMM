@@ -22,3 +22,4 @@ cmake .. -Dmgard_DIR=/home/zw/cworkspace/build/MGARD/install -Dzstd_DIR=~/cworks
 $./addVar ../datasets/sampleUmesh.vtk 
 $./resampleCompress ../datasets/sampleUmeshWithVar.vtk
 ```
+

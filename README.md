@@ -2,24 +2,23 @@ UMM represents unstructured medsh for mgard, this is the experimental project to
 how to leverage the existing method to let the mgard proceeds the unstructured data.
 
 
-This is an exmaple to build the source code
-Assuming there is a build dir in the src dir
+install mgard and vtk, then build the project by executing
 
 ```
-cmake .. -DVTK_DIR=/home/zw/cworkspace/build/vtk
+$ cd installscripts
+$ /bin/bash summit_install.sh
 ```
 
-Example for mgard compression example on local env
+the datasets is located in 
 
 ```
-cmake .. -Dmgard_DIR=/home/zw/cworkspace/build/MGARD/install -Dzstd_DIR=~/cworkspace/build/zstd/install/lib/cmake/zstd/
+/gpfs/alpine/proj-shared/csc143/zhewang/datasets/UMM_datasets
 ```
-
 
 ### Examples
 
 ```
-$./addVar ../datasets/sampleUmesh.vtk 
-$./resampleCompress ../datasets/sampleUmeshWithVar.vtk
+$./addVar sampleUmesh.vtk 
+$./resampleCompress sampleUmeshWithVar.vtk 100
 ```
 

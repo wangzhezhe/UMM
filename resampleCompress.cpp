@@ -9,14 +9,16 @@
 
 int main(int argc, char *argv[]) {
   // Parse command line arguments
-  if (argc != 2) {
-    std::cerr << "Usage: " << argv[0] << " Filename" << std::endl;
+  if (argc != 3) {
+    std::cerr << "Usage: " << argv[0] << " Filename"  << "Smaple rate" << std::endl;
     return EXIT_FAILURE;
   }
 
   std::string vtkFile = argv[1];
 
-  int resampleNum=25;
+  long unsigned int resampleNum=std::stoi(argv[2]);
+
+  std::cout << "sample rate is " << resampleNum << std::endl;
 
   // load the vtk file
   vtkSmartPointer<vtkUnstructuredGridReader> reader =

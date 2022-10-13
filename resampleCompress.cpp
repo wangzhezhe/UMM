@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
 
   long unsigned int resampleNum=std::stoi(argv[3]);
 
-  std::cout << "Number of sample points is " << resampleNum << std::endl;
+  std::cout << "Number of sample points in each dimention is " << resampleNum  << std::endl;
 
   // load the vtk file
   vtkSmartPointer<vtkUnstructuredGridReader> reader =

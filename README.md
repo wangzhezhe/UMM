@@ -18,7 +18,15 @@ the datasets is located in
 ### Examples
 
 ```
-$./addVar sampleUmesh.vtk 
-$./resampleCompress sampleUmeshWithVar.vtk 100
+$ ./addVar ../UMM_datasets/twoholes.vtk 
+add field: v_center_dist
+add field: v_sin
+generate vtk file: ../UMM_datasets/twoholesWithVar.vtk
+
+
+$ ./resampleCompress ../UMM_datasets/twoholesWithVar.vtk v_center_dist 100
+
+$ ./resampleCompress ../UMM_datasets/twoholesWithVar.vtk v_sin 100
+
 ```
 

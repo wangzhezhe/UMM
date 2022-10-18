@@ -1,11 +1,14 @@
 cmake_minimum_required (VERSION 3.2)
 project(UMM LANGUAGES CXX)
 
-find_package(VTK COMPONENTS
+#export VTK_DIR=/home/qian/Software/vtk/build
+
+find_package(VTK PATHS /home/qian/Software/vtk/build 
+COMPONENTS
 IOLegacy
 IOXML
 IOImage
-vtkFiltersCore
+FiltersCore
 )
 
 add_executable(addVar addVar.cpp)

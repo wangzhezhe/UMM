@@ -4,7 +4,7 @@ set -e
 
 # refer to https://github.com/CODARcode/MGARD/blob/master/build_scripts/build_mgard_cuda_summit.sh
 # for installing the mgard
-# put the gpu installation as needed
+# use the gpu installation as needed
 
 module load gcc
 module load cmake

@@ -9,16 +9,18 @@
 
 int main(int argc, char *argv[]) {
   // Parse command line arguments
-  if (argc != 3) {
-    std::cerr << "Usage: " << argv[0] << " Filename"  << "Smaple rate" << std::endl;
+  if (argc != 4) {
+    std::cerr << "Usage: " << argv[0] << " <Filename> <FieldName> <Number of sample points>" << std::endl;
     return EXIT_FAILURE;
   }
 
   std::string vtkFile = argv[1];
 
-  long unsigned int resampleNum=std::stoi(argv[2]);
+  std::string fieldName = argv[2];
 
-  std::cout << "sample rate is " << resampleNum << std::endl;
+  long unsigned int resampleNum=std::stoi(argv[3]);
+
+  std::cout << "Number of sample points in each dimention is " << resampleNum  << std::endl;
 
   // load the vtk file
   vtkSmartPointer<vtkUnstructuredGridReader> reader =
@@ -33,7 +35,7 @@ int main(int argc, char *argv[]) {
   // get field array direactly and put it into the data set
   vtkPointData *pointData = unsGridData->GetPointData();
 
-  auto pointDataArray = pointData->GetScalars("v_center_dist");
+  auto pointDataArray = pointData->GetScalars(fieldName.c_str());
 
   // pointDataArray->Print(std::cout);
 
@@ -65,7 +67,7 @@ int main(int argc, char *argv[]) {
   double orignalDataSize = static_cast<double>(N * sizeof(*u));
   std::cout << "orignalDataSize " << orignalDataSize << std::endl;
 
-  // try to create a sample based on
+  // try to create a sample based on vtk resample filter
   // refer to this
   // https://gitlab.kitware.com/vtk/vtk/-/blob/master/Filters/Core/Testing/Cxx/TestResampleToImage.cxx
   vtkNew<vtkResampleToImage> resample;
@@ -127,7 +129,7 @@ int main(int argc, char *argv[]) {
   // put into the mgard to check
 
   auto reamplePointDataArray =
-      resampledImage->GetPointData()->GetScalars("v_center_dist");
+      resampledImage->GetPointData()->GetScalars(fieldName.c_str());
 
   // pointDataArray->Print(std::cout);
 
@@ -163,8 +165,4 @@ int main(int argc, char *argv[]) {
   std::cout << "compression ratio for sampled data set 1d is: "
             << orignalDataSize / rcompressed1d.size()
             << std::endl;
-
-
-   
-
 }

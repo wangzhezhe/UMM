@@ -2,13 +2,16 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <math.h>
 #include <vector>
 
 #include <vtkDoubleArray.h>
+#include <vtkPointData.h>
 #include <vtkUnstructuredGrid.h>
 #include <vtkUnstructuredGridReader.h>
-#include <vtkPointData.h>
 #include <vtkUnstructuredGridWriter.h>
+
+#define PI 3.14159265
 
 struct Point {
   std::vector<double> m_coor;
@@ -57,29 +60,16 @@ void generatePointLists() {
 
   pointsFile.close();
 }
-//refer to https://stackoverflow.com/questions/10847007/using-the-gaussian-probability-density-function-in-c
-double normalPdf(double x, double m, double s)
-{
-    static const double inv_sqrt_2pi = 0.3989422804014327;
-    double a = (x - m) / s;
+// refer to
+// https://stackoverflow.com/questions/10847007/using-the-gaussian-probability-density-function-in-c
+double normalPdf(double x, double m, double s) {
+  static const double inv_sqrt_2pi = 0.3989422804014327;
+  double a = (x - m) / s;
 
-    return inv_sqrt_2pi / s * std::exp(-0.5f * a * a);
+  return inv_sqrt_2pi / s * std::exp(-0.5f * a * a);
 }
 
-// input an plan unstructured mesh
-// add varaible to the mesh
-// and output the data
-void addVariables(std::string vtkFile) {
-  // create the unstructured instance
-  //  Read all the data from the file
-  vtkSmartPointer<vtkUnstructuredGridReader> reader =
-      vtkSmartPointer<vtkUnstructuredGridReader>::New();
-  reader->SetFileName(vtkFile.c_str());
-  reader->Update();
-
-  // get the specific unstructureGridData and check the results
-  vtkSmartPointer<vtkUnstructuredGrid> unstructureGridData =
-      reader->GetOutput();
+void addVariableSin(vtkSmartPointer<vtkUnstructuredGrid> unstructureGridData) {
 
   // TODO, go through each points and adding variable here
   // the variable is the distance between the center
@@ -94,10 +84,60 @@ void addVariables(std::string vtkFile) {
 
   double center[3] = {(xmin + xmax) / 2, (ymin + ymax) / 2, (zmin + zmax) / 2};
 
-  std::cout << "center " << center[0] << "," << center[1] << "," << center[2]
-            << std::endl;
+  //std::cout << "center " << center[0] << "," << center[1] << "," << center[2]
+  //          << std::endl;
 
   vtkNew<vtkDoubleArray> VarArray;
+
+  std::cout << "add field: v_sin" << std::endl;
+
+  VarArray->SetName("v_sin");
+  VarArray->SetNumberOfComponents(1);
+
+  for (vtkIdType id = 0; id < unstructureGridData->GetNumberOfPoints(); id++) {
+
+    unstructureGridData->GetPoint(id, testpoint);
+
+    double value = sin(pow((testpoint[0] - center[0]), 2) +
+                       pow((testpoint[1] - center[1]), 2) +
+                       pow((testpoint[2] - center[2]), 2));
+
+    VarArray->InsertNextValue(value);
+
+    // std::cout << "Point: " << testpoint[0] << ", " << testpoint[1] << ", "
+    //           << testpoint[2] << " center dist " << dist << endl;
+    //  Add variable into the data set
+  }
+
+  auto dataset = unstructureGridData->GetPointData();
+  dataset->AddArray(VarArray);
+}
+
+// input an plan unstructured mesh
+// add varaible to the mesh
+// and output the data
+void addVariableDistCenter(
+    vtkSmartPointer<vtkUnstructuredGrid> unstructureGridData) {
+
+  // the variable is the distance between the center
+  double testpoint[3];
+  const double *bounds = unstructureGridData->GetBounds();
+  double xmin = bounds[0];
+  double xmax = bounds[1];
+  double ymin = bounds[2];
+  double ymax = bounds[3];
+  double zmin = bounds[4];
+  double zmax = bounds[5];
+
+  double center[3] = {(xmin + xmax) / 2, (ymin + ymax) / 2, (zmin + zmax) / 2};
+
+  //std::cout << "center " << center[0] << "," << center[1] << "," << center[2]
+  //          << std::endl;
+
+  vtkNew<vtkDoubleArray> VarArray;
+
+  std::cout << "add field: v_center_dist" << std::endl;
+
   VarArray->SetName("v_center_dist");
   VarArray->SetNumberOfComponents(1);
 
@@ -105,12 +145,12 @@ void addVariables(std::string vtkFile) {
 
     unstructureGridData->GetPoint(id, testpoint);
     double dist = sqrt(pow((testpoint[0] - center[0]), 2) +
-                  pow((testpoint[1] - center[1]), 2) +
-                  pow((testpoint[2] - center[2]), 2));
+                       pow((testpoint[1] - center[1]), 2) +
+                       pow((testpoint[2] - center[2]), 2));
     double normalPdfValue = normalPdf(dist, 0.0, 0.15);
-    //the array bonds with the point based on the id
-    if(dist<0.5){
-      normalPdfValue=normalPdfValue*5;
+    // the array bonds with the point based on the id
+    if (dist < 0.5) {
+      normalPdfValue = normalPdfValue * 5;
     }
     VarArray->InsertNextValue(normalPdfValue);
 
@@ -121,18 +161,38 @@ void addVariables(std::string vtkFile) {
 
   auto dataset = unstructureGridData->GetPointData();
   dataset->AddArray(VarArray);
+}
 
-  unstructureGridData->Print(std::cout);
+void addVariables(std::string vtkFile) {
 
-  //output
-    vtkSmartPointer<vtkUnstructuredGridWriter> writer =
-        vtkSmartPointer<vtkUnstructuredGridWriter>::New();
-    std::string fileSuffix = vtkFile.substr(0, vtkFile.size() - 4);
-    std::string outputFileName = fileSuffix+std::string("WithVar.vtk");
-    writer->SetFileName(outputFileName.c_str());
-    // get the specific polydata and check the results
-    writer->SetInputData(unstructureGridData);
-    writer->Write();
+  // create the unstructured instance
+  // Read all the data from the file
+  vtkSmartPointer<vtkUnstructuredGridReader> reader =
+      vtkSmartPointer<vtkUnstructuredGridReader>::New();
+  reader->SetFileName(vtkFile.c_str());
+  reader->Update();
+
+  // get the specific unstructureGridData and check the results
+  vtkSmartPointer<vtkUnstructuredGrid> unstructureGridData =
+      reader->GetOutput();
+  
+  //add variables 
+  addVariableDistCenter(unstructureGridData);
+  addVariableSin(unstructureGridData);
+
+  // output
+
+  //unstructureGridData->Print(std::cout);
+
+  vtkSmartPointer<vtkUnstructuredGridWriter> writer =
+      vtkSmartPointer<vtkUnstructuredGridWriter>::New();
+  std::string fileSuffix = vtkFile.substr(0, vtkFile.size() - 4);
+  std::string outputFileName = fileSuffix + std::string("WithVar.vtk");
+  std::cout << "create vtk file: " << outputFileName << std::endl; 
+  writer->SetFileName(outputFileName.c_str());
+  // get the specific polydata and check the results
+  writer->SetInputData(unstructureGridData);
+  writer->Write();
 }
 
 int main(int argc, char *argv[]) {
@@ -141,7 +201,6 @@ int main(int argc, char *argv[]) {
     std::cerr << "Usage: " << argv[0] << " Filename" << std::endl;
     return EXIT_FAILURE;
   }
-
   addVariables(argv[1]);
   return 0;
 }

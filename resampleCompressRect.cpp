@@ -66,7 +66,10 @@ int main(int argc, char *argv[]) {
     max_v = (u[i]>max_v) ? u[i] : max_v;
   }
   std::cout << "value range: [" << min_v << ", " << max_v << "]\n";
-  FILE *fp = fopen("large_case4.bin", "w");
+  
+  std::string fileSuffix = vtkFile.substr(0, vtkFile.size() - 4);
+  std::string binFileName = fileSuffix + std::string(".bin");
+  FILE *fp = fopen(binFileName.c_str(), "w");
   fwrite(u, sizeof(*u), N, fp);
   fclose(fp);
 
@@ -77,12 +80,15 @@ int main(int argc, char *argv[]) {
             << ", compressed size: " << compressed.size()
             << std::endl;
   
-  double l2_err = 0.0;
+  double l2_err = 0.0, sum_data=0.0;
+  size_t cnt_nzr=0;
   for (size_t i=0; i<N; i++) {
     l2_err += std::abs(u[i]-decompressed.data()[i]);
+    sum_data += u[i];
+    cnt_nzr = (u[i]>0) ? (cnt_nzr+1) : cnt_nzr;
   }
   l2_err = std::sqrt(l2_err / N);
-  std::cout << "original 1D's l2_err: " << l2_err << "\n";
+  std::cout << "original 1D's l2_err: " << l2_err << ", mean: " << sum_data / (double)cnt_nzr<< "\n";
 
   // try to create a sample based on
   // refer to this
@@ -131,7 +137,6 @@ int main(int argc, char *argv[]) {
 
   vtkSmartPointer<vtkDataSetWriter> writer =
       vtkSmartPointer<vtkDataSetWriter>::New();
-  std::string fileSuffix = vtkFile.substr(0, vtkFile.size() - 4);
   std::string outputFileName = fileSuffix + std::string("Resample.vtk");
 
   writer->SetFileName(outputFileName.c_str());
@@ -146,7 +151,7 @@ int main(int argc, char *argv[]) {
   // put into the mgard to check
 
   auto reamplePointDataArray =
-      resampledImage->GetPointData()->GetScalars("v_center_dist");
+      resampledImage->GetPointData()->GetScalars("v_center_ist");
 
   // pointDataArray->Print(std::cout);
 
@@ -169,17 +174,19 @@ int main(int argc, char *argv[]) {
             << ", compressed size: " << rcompressed.size()
             << std::endl;
 
-  double l2_err_r2d = 0.0;
+  double l2_err_r2d = 0.0, sum_data_r2d = 0.0;
+  size_t cnt_nzr_2d=0;
   for (size_t i=0; i<rN; i++) {
     l2_err_r2d += std::abs(ru[i]-rdecompressed.data()[i]);
+    sum_data_r2d += ru[i];
+    cnt_nzr_2d = (ru[i]>0) ? (cnt_nzr_2d+1) : cnt_nzr_2d;
   }
   l2_err_r2d = std::sqrt(l2_err_r2d / rN);
-  std::cout << "resampled 2D's l2_err: " << l2_err_r2d << "\n";
+  std::cout << "resampled 2D's l2_err: " << l2_err_r2d << ", mean: " << sum_data_r2d / (double)cnt_nzr_2d<< ", non-zeros points: " << cnt_nzr_2d <<"\n";
   // TODO, use the compression based on 2d image
 
-  char binFile[2048];
-  sprintf(binFile, "%s.bin", argv[1]);
-  fp = fopen(binFile, "w");
+  binFileName = fileSuffix + std::string("Resample.bin");
+  fp = fopen(binFileName.c_str(), "w");
   fwrite(ru, sizeof(double), rN, fp);
   fclose(fp);
   const mgard::TensorMeshHierarchy<1, double> rhierarchy1d({resampleNum*resampleNum});

@@ -17,6 +17,10 @@ target_link_libraries(addVar ${VTK_LIBRARIES})
 add_executable(interp interp.cpp)
 target_link_libraries(interp ${VTK_LIBRARIES})
 
-find_package(mgard)
+find_package(MGARD REQUIRED)
+
+#find_package(mgard PATHS /home/qian/Software/MGARD/build_scripts/install-serial/lib/cmake/mgard/)
 add_executable(resampleCompress resampleCompress.cpp)
 target_link_libraries(resampleCompress ${VTK_LIBRARIES} mgard::mgard)
+add_executable(resampleCompressRect resampleCompressRect.cpp)
+target_link_libraries(resampleCompressRect ${VTK_LIBRARIES} mgard::mgard)

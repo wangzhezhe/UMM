@@ -10,7 +10,7 @@
 int main(int argc, char *argv[]) {
   // Parse command line arguments
   if (argc != 4) {
-    std::cerr << "Usage: " << argv[0] << " Filename"  << "Smaple rate" << std::endl;
+    std::cerr << "Usage: " << argv[0] << " Filename"  << " Smaple rate" << " tolerance " << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -177,7 +177,9 @@ int main(int argc, char *argv[]) {
   std::cout << "resampled 2D's l2_err: " << l2_err_r2d << "\n";
   // TODO, use the compression based on 2d image
 
-  fp = fopen("large_case4_resample.bin", "w");
+  char binFile[2048];
+  sprintf(binFile, "%s.bin", argv[1]);
+  fp = fopen(binFile, "w");
   fwrite(ru, sizeof(double), rN, fp);
   fclose(fp);
   const mgard::TensorMeshHierarchy<1, double> rhierarchy1d({resampleNum*resampleNum});

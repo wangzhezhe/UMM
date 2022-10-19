@@ -2,7 +2,6 @@ cmake_minimum_required (VERSION 3.2)
 project(UMM LANGUAGES CXX)
 
 #export VTK_DIR=/home/qian/Software/vtk/build
-
 find_package(VTK PATHS /home/qian/Software/vtk/build 
 COMPONENTS
 IOLegacy

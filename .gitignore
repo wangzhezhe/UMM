@@ -3,3 +3,6 @@ build/
 datasets
 *.vtk
 UMM_datasets/
+installscripts/install/
+installscripts/src/
+installscripts/build/

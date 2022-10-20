@@ -13,6 +13,7 @@ FiltersCore
 add_executable(addVar addVar.cpp)
 target_link_libraries(addVar ${VTK_LIBRARIES})
 
+#set (CMAKE_CXX_FLAGS "-DDEBUG_BUILD")
 add_executable(interp interp.cpp)
 target_link_libraries(interp ${VTK_LIBRARIES})
 

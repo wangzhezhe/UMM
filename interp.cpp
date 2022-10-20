@@ -67,14 +67,22 @@ int main(int argc, char *argv[]) {
     vtkCell *interpCell = struPoints->GetCell(interpCellId);
 
     int interpPointsNum = interpCell->GetNumberOfPoints();
+
+    if(interpCellId == -1){
+      // do not find the cell id
+      // use the closetPoint to find
+      double closestPoint[3];
+      vtkIdType closestCellId;
+      vtkGenericCell*closestCell;
+      int subid=0;
+      double dist=0;
+      cellLocator->FindClosestPoint(pointcoord,closestPoint,closestCellId,subid,dist);
+      interpCellId = closestCellId;
+    }
+
     std::cout << "id " << id << " x " << pointcoord[0] << " y " << pointcoord[1]
               << " z " << pointcoord[2] << " interpCellId is " << interpCellId
               << " interpPointsNum is " << interpPointsNum << std::endl;
-
-    if (interpCellId == -1) {
-      vtkPoints *interpPoints = interpCell->GetPoints();
-      interpPoints->Print(std::cout);
-    }
 
     // TODO, how to process the case that the points at boundry returns -1 for
     // the FindCell

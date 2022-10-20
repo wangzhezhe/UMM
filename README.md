@@ -28,5 +28,8 @@ $ ./resampleCompress ../UMM_datasets/twoholesWithVar.vtk v_center_dist 100
 
 $ ./resampleCompress ../UMM_datasets/twoholesWithVar.vtk v_sin 100
 
+$ ./interp ../datasets/sampleUmeshWithVarResample.vtk ../datasets/sampleUmesh.vtk 
 ```
+
+
 

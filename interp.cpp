@@ -81,26 +81,65 @@ double Interpolate2D(std::vector<std::vector<double>> inputCoor, std::vector<dou
   return p;
 }
 
+// compute the diff between the interpolated value and the original value
+void computeDiff(vtkDoubleArray *interpFieldArray, vtkDataArray *originalFieldArray)
+{
+  if (interpFieldArray->GetNumberOfComponents() != originalFieldArray->GetNumberOfComponents())
+  {
+    throw std::runtime_error("field array have different components");
+  }
+
+    if (interpFieldArray->GetNumberOfTuples() != originalFieldArray->GetNumberOfTuples())
+  {
+    throw std::runtime_error("field array have different tuples");
+  }
+  double accuError = 0;
+  double maxError = 0;
+  double avgError = 0;
+  for (int i = 0; i < interpFieldArray->GetNumberOfTuples(); i++)
+  {
+    double *v1 = interpFieldArray->GetTuple(i);
+    double *v2 = originalFieldArray->GetTuple(i);
+
+    double absError = abs(*v1 - *v2);
+    if(absError>0.5){
+    std::cout << "id " << i 
+              << " interp " << *v1 << " original " << *v2 << std::endl;
+    }
+    accuError = accuError + absError;
+    
+    maxError = std::max (maxError, abs(*v1 - *v2));
+  }
+
+  std::cout << "accumulated error " << accuError << std::endl;
+  std::cout << "max error " << maxError << std::endl;
+  std::cout << "avg error " << accuError/interpFieldArray->GetNumberOfTuples() << std::endl;
+}
+
 int main(int argc, char *argv[])
 {
   // Parse command line arguments
-  if (argc != 4)
+  if (argc != 3)
   {
     std::cerr << "Usage: " << argv[0]
-              << " <uniformGrid file> <unstructuredGrid file>" << std::endl;
+              << " <dirname+suffix> <fieldName>" << std::endl;
     return EXIT_FAILURE;
   }
-  
-  std::string fieldName = argv[1];
 
-  std::string structuredGridFile = argv[2];
+  std::string datasetDirSuffix = argv[1];
 
-  std::string unstructuredGridFile = argv[3];
+  std::string fieldName = argv[2];
+
+  std::string unstructuredMeshRaw = datasetDirSuffix + ".vtk";
+  std::string unstructuredWithVarFile = datasetDirSuffix + "WithVar.vtk";
+  std::string structuredReampleFile = datasetDirSuffix + "WithVarResample.vtk";
+
+  std::cout << "load files: " << unstructuredMeshRaw << "," << unstructuredWithVarFile << "," << structuredReampleFile << std::endl;
 
   // load the uniform grid
   vtkSmartPointer<vtkStructuredPointsReader> imgReader =
       vtkSmartPointer<vtkStructuredPointsReader>::New();
-  imgReader->SetFileName(structuredGridFile.c_str());
+  imgReader->SetFileName(structuredReampleFile.c_str());
   imgReader->Update();
 
   vtkStructuredPoints *struPoints = imgReader->GetOutput();
@@ -115,7 +154,7 @@ int main(int argc, char *argv[])
   // load the unstructured grid
   vtkSmartPointer<vtkUnstructuredGridReader> reader =
       vtkSmartPointer<vtkUnstructuredGridReader>::New();
-  reader->SetFileName(unstructuredGridFile.c_str());
+  reader->SetFileName(unstructuredMeshRaw.c_str());
   reader->Update();
 
   // get the specific polydata and check the results
@@ -144,7 +183,7 @@ int main(int argc, char *argv[])
   std::string interpFieldName = fieldName + "_interp";
   interpFieldArray->SetName(interpFieldName.c_str());
   interpFieldArray->SetNumberOfComponents(1);
-  vtkIdType pointsNum=unsGridData->GetNumberOfPoints();
+  vtkIdType pointsNum = unsGridData->GetNumberOfPoints();
   interpFieldArray->SetNumberOfTuples(pointsNum);
 
   for (vtkIdType id = 0; id < pointsNum; id++)
@@ -204,21 +243,38 @@ int main(int argc, char *argv[])
     }
 
     double interPolatedValue = Interpolate2D(inputCoor, fieldValues, pointcoord);
-    interpFieldArray->SetValue(id,interPolatedValue);
+    interpFieldArray->SetValue(id, interPolatedValue);
   }
 
   auto unsDataset = unsGridData->GetPointData();
   unsDataset->AddArray(interpFieldArray);
   std::cout << "add field:" << interpFieldName << std::endl;
 
-  //output the data into the vtk file
-    vtkSmartPointer<vtkUnstructuredGridWriter> writer =
+  // output the data into the vtk file
+  vtkSmartPointer<vtkUnstructuredGridWriter> writer =
       vtkSmartPointer<vtkUnstructuredGridWriter>::New();
-  std::string fileSuffix = unstructuredGridFile.substr(0, unstructuredGridFile.size() - 4);
+  std::string fileSuffix = unstructuredMeshRaw.substr(0, unstructuredMeshRaw.size() - 4);
   std::string outputFileName = fileSuffix + std::string("Interp.vtk");
-  std::cout << "create vtk file: " << outputFileName << std::endl; 
+  std::cout << "create vtk file: " << outputFileName << std::endl;
   writer->SetFileName(outputFileName.c_str());
   // get the specific polydata and check the results
   writer->SetInputData(unsGridData);
   writer->Write();
+
+  // Load the data with var and then extract associated file (value with var)
+  // and then compare it with the interpolated array
+  // maybe udpate the code here, just provide the name of the original mesh surfix
+
+  vtkSmartPointer<vtkUnstructuredGridReader> readerWithVar =
+      vtkSmartPointer<vtkUnstructuredGridReader>::New();
+  readerWithVar->SetFileName(unstructuredWithVarFile.c_str());
+  readerWithVar->Update();
+
+  // get the specific polydata and check the results
+  vtkUnstructuredGrid *unsGridDataWithVar = readerWithVar->GetOutput();
+
+  vtkPointData *pointDataWithVar = unsGridDataWithVar->GetPointData();
+  auto origianlDataArray = pointDataWithVar->GetScalars(fieldName.c_str());
+  //TODO, why there are large error aound the edge of the hole? still need to investigate
+  computeDiff(interpFieldArray, origianlDataArray);
 }

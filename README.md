@@ -18,18 +18,17 @@ the datasets is located in
 ### Examples
 
 ```
-$ ./addVar ../datasets/twoholes.vtk 
+$ ./addVar ../../../datasets/twoholes.vtk 
 add field: v_center_dist
 add field: v_sin
-generate vtk file: ../datasets/twoholesWithVar.vtk
+create vtk file: ../../../datasets/twoholesWithVar.vtk
 
-$ ./resampleCompress ../datasets/twoholesWithVar.vtk v_center_dist 200
+$ ./resampleCompress ../../../datasets/twoholesWithVar.vtk v_center_dist 200
+$ ./interp ../../../datasets/twoholes v_center_dist
 or
-$ ./resampleCompress ../datasets/twoholesWithVar.vtk v_sin 200
+$ ./resampleCompress ../../../datasets/twoholesWithVar.vtk v_sin 200
+$ ./interp ../../../datasets/twoholes v_sin
 
-Using the information from resampled data to interpolate back to the original mesh
-
-$ ./interp v_sin ../datasets/twoholesWithVarResample.vtk  ../datasets/twoholes.vtk 
 ```
 
 

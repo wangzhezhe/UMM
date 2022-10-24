@@ -18,16 +18,22 @@ the datasets is located in
 ### Examples
 
 ```
-$ ./addVar ../../../datasets/twoholes.vtk 
+$ ./addVar ../../../datasets/large_case4.vtk 
 add field: v_center_dist
 add field: v_sin
-create vtk file: ../../../datasets/twoholesWithVar.vtk
+create vtk file: ../../../datasets/large_case4WithVar.vtk
 
-$ ./resampleCompress ../../../datasets/twoholesWithVar.vtk v_center_dist 200
+$ ./resampleCompress ../../../datasets/large_case4WithVar.vtk v_center_dist 5000
 $ ./interp ../../../datasets/twoholes v_center_dist
 or
-$ ./resampleCompress ../../../datasets/twoholesWithVar.vtk v_sin 200
-$ ./interp ../../../datasets/twoholes v_sin
+$ ./resampleCompress ../../../datasets/large_case4WithVar.vtk v_sin 5000
+$ ./interp ../../../datasets/large_case4 v_sin 
+load files: ../../../datasets/large_case4.vtk,../../../datasets/large_case4WithVar.vtk,../../../datasets/large_case4WithVarResample.vtk
+add field:v_sin_interp
+create vtk file: ../../../datasets/large_case4Interp.vtk
+accumulated error 8.87303
+max error 0.00150419
+avg error 1.5308e-05
 
 ```
 

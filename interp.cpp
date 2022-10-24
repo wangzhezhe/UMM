@@ -37,28 +37,27 @@ double Interpolate2D(std::vector<std::vector<double>> inputCoor, std::vector<dou
   // the point sequence is bottom left corner 0 (0,0), bottom right corner 1 (1,0)
   // upper left corner 2 (0,1) , upper right corner 3 (1,1)
   // https://www.omnicalculator.com/math/bilinear-interpolation
+  double tolerance = 0.000001;
+  double x1 = inputCoor[0][0] - tolerance;
+  double y1 = inputCoor[0][1] - tolerance;
 
-  double x1 = inputCoor[0][0];
-  double y1 = inputCoor[0][1];
-
-  double x2 = inputCoor[3][0];
-  double y2 = inputCoor[3][1];
+  double x2 = inputCoor[3][0] + tolerance;
+  double y2 = inputCoor[3][1] + tolerance;
 
   // look at the bound, make sure the targeted point is in the bounds
   // there are tolerance issues
-  double tolerance = 0.000001;
 
   // dedicatedPoint[0] should within x1 and x2
   // dedicatedPoint[1] should within y1 and y2
   double tx = dedicatedPoint[0];
   double ty = dedicatedPoint[1];
-  if ((tx < x1 - tolerance) && (tx > x2 + tolerance))
+  if ((tx < x1) && (tx > x2))
   {
     DEBUG(tx << " , " << x1 << " , " << x2);
     throw std::runtime_error("tx is out of bounds");
   }
 
-  if ((ty < y1 - tolerance) && (ty > y2 + tolerance))
+  if ((ty < y1) && (ty > y2))
   {
     DEBUG(ty << " , " << y1 << " , " << y2);
     throw std::runtime_error("ty is out of bounds");
@@ -89,7 +88,7 @@ void computeDiff(vtkDoubleArray *interpFieldArray, vtkDataArray *originalFieldAr
     throw std::runtime_error("field array have different components");
   }
 
-    if (interpFieldArray->GetNumberOfTuples() != originalFieldArray->GetNumberOfTuples())
+  if (interpFieldArray->GetNumberOfTuples() != originalFieldArray->GetNumberOfTuples())
   {
     throw std::runtime_error("field array have different tuples");
   }
@@ -102,18 +101,19 @@ void computeDiff(vtkDoubleArray *interpFieldArray, vtkDataArray *originalFieldAr
     double *v2 = originalFieldArray->GetTuple(i);
 
     double absError = abs(*v1 - *v2);
-    if(absError>0.5){
-    std::cout << "id " << i 
-              << " interp " << *v1 << " original " << *v2 << std::endl;
+    if (absError > 0.5)
+    {
+      std::cout << "id " << i
+                << " interp " << *v1 << " original " << *v2 << std::endl;
     }
     accuError = accuError + absError;
-    
-    maxError = std::max (maxError, abs(*v1 - *v2));
+
+    maxError = std::max(maxError, abs(*v1 - *v2));
   }
 
   std::cout << "accumulated error " << accuError << std::endl;
   std::cout << "max error " << maxError << std::endl;
-  std::cout << "avg error " << accuError/interpFieldArray->GetNumberOfTuples() << std::endl;
+  std::cout << "avg error " << accuError / interpFieldArray->GetNumberOfTuples() << std::endl;
 }
 
 int main(int argc, char *argv[])
@@ -275,6 +275,8 @@ int main(int argc, char *argv[])
 
   vtkPointData *pointDataWithVar = unsGridDataWithVar->GetPointData();
   auto origianlDataArray = pointDataWithVar->GetScalars(fieldName.c_str());
-  //TODO, why there are large error aound the edge of the hole? still need to investigate
+  // TODO, why there are large error aound the edge of the hole? still need to investigate
+  // There is the shift of the hole after the resample, which cause the interp inaccurate
+  // Maybe just use the value of the cloest point direactly
   computeDiff(interpFieldArray, origianlDataArray);
 }

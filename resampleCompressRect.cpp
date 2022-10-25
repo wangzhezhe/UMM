@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
   // get field array direactly and put it into the data set
   vtkPointData *pointData = unsGridData->GetPointData();
 
-  auto pointDataArray = pointData->GetScalars("v_center_dist");
+  auto pointDataArray = pointData->GetScalars("v_sin");
 
   // pointDataArray->Print(std::cout);
 
@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
   // put into the mgard to check
 
   auto reamplePointDataArray =
-      resampledImage->GetPointData()->GetScalars("v_center_ist");
+      resampledImage->GetPointData()->GetScalars("v_sin");
 
   // pointDataArray->Print(std::cout);
 

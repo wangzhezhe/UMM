@@ -14,6 +14,7 @@
 #include <vtkStructuredPoints.h>
 
 #include <mgard/compress.hpp>
+#include <zstd.h>
 
 //#define DEBUG_BUILD 1
 #ifdef DEBUG_BUILD
@@ -30,6 +31,44 @@
 
 // input coordinates of dedicated point
 // get the interpolated calue of dedicated point
+
+template <std::size_t N, typename Real>
+mgard::CompressedDataset<N, Real>
+quantizeEncode(const mgard::TensorMeshHierarchy<N, Real> &hierarchy, Real *const u,
+         const Real tolerance) {
+  const std::size_t ndof = hierarchy.ndof();
+  mgard::pb::Header header;
+  mgard::populate_defaults(header);
+  hierarchy.populate(header);
+  mgard::decompose(hierarchy, header, u);
+  {
+    mgard::pb::ErrorControl &e = *header.mutable_error_control();
+    e.set_mode(mgard::pb::ErrorControl::ABSOLUTE);
+    e.set_norm(mgard::pb::ErrorControl::S_NORM);
+    e.set_s(0);
+    e.set_tolerance(tolerance);
+  }
+  mgard::MemoryBuffer<unsigned char> quantized = mgard::quantization_buffer(header, ndof);
+  mgard::quantize(hierarchy, header, Real(0), tolerance, u, quantized.data.get());
+  mgard::MemoryBuffer<unsigned char> buffer =
+      mgard::compress(header, quantized.data.get(), quantized.size);
+  return mgard::CompressedDataset<N, Real>(hierarchy, header, 0, tolerance,
+                                    buffer.data.release(), buffer.size);
+}
+
+template <std::size_t N, typename Real>
+Real *const
+dequantizeDecode(const mgard::CompressedDataset<N, Real> &compressed) {
+  const std::size_t ndof = compressed.hierarchy.ndof();
+  Real *const dequantized = new Real[ndof];
+  mgard::MemoryBuffer<unsigned char> quantized =
+      mgard::quantization_buffer(compressed.header, ndof);
+  mgard::decompress(compressed.header, const_cast<void *>(compressed.data()),
+             compressed.size(), quantized.data.get(), quantized.size);
+  mgard::dequantize(compressed, quantized.data.get(), dequantized);
+  
+  return dequantized;
+}
 
 double Interpolate2D(std::vector<std::vector<double>> inputCoor, std::vector<double> fieldValues, double dedicatedPoint[3])
 {
@@ -87,8 +126,10 @@ double Interpolate2D(std::vector<std::vector<double>> inputCoor, std::vector<dou
 
 int main(int argc, char *argv[]) {
   // Parse command line arguments
-  if (argc != 6) {
-    std::cerr << "Usage: " << argv[0] << " datasetDirSuffix"  << " filedName" << " Smaple rate" << " tolerance " << " split ratio (data : residual)" << std::endl;
+  if (argc != 7) {
+    std::cerr << "Usage: " << argv[0] << " datasetDirSuffix"  << " filedName" << " Smaple rate" ;
+    std::cerr << " tolerance " << " split ratio (data : residual)";
+    std::cerr << " residual compression strategy (0: lossless | 1: quantization + lossless) | 2: lossy"<< std::endl;
     return EXIT_FAILURE;
   }
 
@@ -142,6 +183,8 @@ int main(int argc, char *argv[]) {
   }
   const double tol_data = ratio_t * tolerance;
   const double tol_resi = tolerance * (1.0-ratio_t); 
+  
+  int option = std::stoi(argv[6]);
 
   const mgard::CompressedDataset<1, double> compressed =
       mgard::compress(hierarchy, u, s, tolerance);
@@ -158,11 +201,12 @@ int main(int argc, char *argv[]) {
   // `compressed` contains the compressed data buffer. We can query its size in
   // bytes with the `size` member function.
   
-  double l2_err = 0.0, sum_data=0.0;
+  double l2_err = 0.0, linf_err=0.0;
   size_t cnt_nzr=0;
   for (size_t i=0; i<N; i++) {
-    l2_err += std::abs(u[i]-decompressed.data()[i]);
-    sum_data += u[i];
+    double diff = std::abs(u[i]-decompressed.data()[i]);
+    l2_err += diff*diff; 
+    linf_err = (diff>linf_err) ? diff : linf_err;
     cnt_nzr = (u[i]>0) ? (cnt_nzr+1) : cnt_nzr;
   }
   l2_err = std::sqrt(l2_err / N);
@@ -246,20 +290,19 @@ int main(int argc, char *argv[]) {
 
   // `compressed` contains the compressed data buffer. We can query its size in
   // bytes with the `size` member function.
-  std::cout << "compression ratio for sampled data set is: "
+  std::cout << "compression ratio for sampled 2d data set is: "
             << orignalDataSize / rcompressed.size()
             << ", compressed size: " << rcompressed.size()
             << std::endl;
 
-  double l2_err_r2d = 0.0, sum_data_r2d = 0.0;
-  size_t cnt_nzr_2d=0;
+  double l2_r2d = 0.0, linf_r2d = 0.0;
   for (size_t i=0; i<rN; i++) {
-    l2_err_r2d += std::abs(ru[i]-rdecompressed.data()[i]);
-    sum_data_r2d += ru[i];
-    cnt_nzr_2d = (ru[i]>0) ? (cnt_nzr_2d+1) : cnt_nzr_2d;
+    double diff = std::abs(ru[i]-rdecompressed.data()[i]);
+    l2_r2d += diff*diff; 
+    linf_r2d = (diff > linf_r2d) ? diff : linf_r2d; 
   }
-  l2_err_r2d = std::sqrt(l2_err_r2d / rN);
-  std::cout << "resampled 2D's l2_err: " << l2_err_r2d << ", mean: " << sum_data_r2d / (double)cnt_nzr_2d<< ", non-zeros points: " << cnt_nzr_2d <<"\n";
+  l2_r2d = std::sqrt(l2_r2d / rN);
+  std::cout << "resampled 2D's l2_err: " << l2_r2d << ", linf_err: " << linf_r2d << "\n"; 
   // TODO, use the compression based on 2d image
 
   const mgard::TensorMeshHierarchy<1, double> rhierarchy1d({resampleNum*resampleNum});
@@ -292,6 +335,7 @@ int main(int argc, char *argv[]) {
 
   size_t cnt_resi = 0;
   double *d2d_data = (double*)rdecompressed.data();
+  std::vector<double> interpoMGR(N); 
   for (vtkIdType id = 0; id < N; id++)
   {
 
@@ -348,25 +392,62 @@ int main(int argc, char *argv[]) {
       fieldValues.push_back(*fieldValue);
     }
 
-    double interPolatedValue = Interpolate2D(inputCoor, fieldValues, pointcoord);
-    double diff = std::abs(interPolatedValue - *pointDataArray->GetTuple(id));
+    interpoMGR.at(id) = Interpolate2D(inputCoor, fieldValues, pointcoord);
+    double diff = interpoMGR.at(id) - *pointDataArray->GetTuple(id); 
 //    std::cout << "id " << id << " diff: " << diff<< "\n"; 
-    if (diff > tol_resi) { 
-        residual.at(id) = diff; 
+    if (std::abs(diff) > tol_data) { 
+        residual.at(id) = diff - tol_data; 
         cnt_resi ++;
     }
   }   
   
   std::cout << "number of residuals to be saved: " << cnt_resi << " (" << ((double)cnt_resi) / ((double)N)*100.0 << "%)\n";
+  double *residualRCT = (double *)malloc(sizeof(double)*N);
+  size_t resi_cSize;
   // compress the residual
-  const mgard::CompressedDataset<1, double> compressed_resi = mgard::compress(hierarchy, residual.data(), s, tol_resi);
-  std::cout << "residual compression ratio bytes: " << compressed_resi.size() << ", compression ratio using tol (" << tol_resi <<"): " << (orignalDataSize) / ((double)compressed_resi.size()) << "\n"; 
-  std::cout << "total compression ratio for 2D resampled data: " << (orignalDataSize) / ((double)compressed_resi.size() + rcompressed.size()) << "\n";
+  switch (option) {
+      case 1:
+        { 
+          const size_t cBuffSize = ZSTD_compressBound(N);
+          unsigned char *const zstd_resi = new unsigned char[cBuffSize];
+          resi_cSize = ZSTD_compress(zstd_resi, cBuffSize, (void *)residual.data(), N, 1);
+          ZSTD_decompress(residualRCT, N * sizeof(double), zstd_resi, resi_cSize);
+          break;
+        }
+      case 2:
+        {
+          const mgard::CompressedDataset<1, double> encoded_resi =
+            quantizeEncode(hierarchy, residual.data(), tol_resi); 
+          residualRCT = dequantizeDecode(encoded_resi);
+          break;
+        }
+      case 3: 
+        {
+          const mgard::CompressedDataset<1, double> compressed_resi = 
+            mgard::compress(hierarchy, residual.data(), s, tol_resi);
+          const mgard::DecompressedDataset<1, double> decompressed_resi = mgard::decompress(compressed_resi);
+          resi_cSize = compressed_resi.size();
+          memcpy(residualRCT, decompressed_resi.data(), sizeof(double)*N);
+          break;
+        }
+  }
+  // verify the statisfication of error bound
+  double l2_comb = 0.0, linf_comb = 0.0;
+  for (size_t id=0; id<N; id++) {
+    double combValue = interpoMGR.at(id) - residualRCT[id];
+    double diff = std::abs(combValue - *pointDataArray->GetTuple(id));
+    l2_comb += diff*diff;
+    linf_comb = (diff > linf_comb) ? diff : linf_comb;
+  }
+  l2_comb = std::sqrt(l2_comb / N);
+  std::cout << "residual compression ratio bytes: " << resi_cSize << ", compression ratio using tol (" << tol_resi <<"): " << (orignalDataSize) / ((double)resi_cSize) << "\n";
+  std::cout << "combined compression ratio for 2D resampled data: " << (orignalDataSize) / ((double)resi_cSize + rcompressed.size()) << "\n";
+  std::cout << "interpolated data's l2_err: " << l2_comb << ", linf_err: " << linf_comb << "\n";
   std::cout << "compression ratio for raw data set is: "
             << orignalDataSize / compressed.size()
             << ", compressed size: " << compressed.size()
             << std::endl;
-  std::cout << "original 1D's l2_err: " << l2_err << ", mean: " << sum_data / (double)cnt_nzr<< "\n";
+  std::cout << "original 1D's l2_err: " << l2_err << ", linf_err: " << linf_err << "\n"; 
 
   return 0;
 }

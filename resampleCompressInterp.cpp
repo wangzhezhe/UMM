@@ -40,7 +40,6 @@ quantizeEncode(const mgard::TensorMeshHierarchy<N, Real> &hierarchy, Real *const
   mgard::pb::Header header;
   mgard::populate_defaults(header);
   hierarchy.populate(header);
-  mgard::decompose(hierarchy, header, u);
   {
     mgard::pb::ErrorControl &e = *header.mutable_error_control();
     e.set_mode(mgard::pb::ErrorControl::ABSOLUTE);
@@ -332,6 +331,7 @@ int main(int argc, char *argv[]) {
   DEBUG(fieldArray->GetNumberOfComponents());
 
   std::vector<double> residual(N, 0);
+  double linf_interPolate = 0.0;
 
   size_t cnt_resi = 0;
   double *d2d_data = (double*)rdecompressed.data();
@@ -396,21 +396,24 @@ int main(int argc, char *argv[]) {
     double diff = interpoMGR.at(id) - *pointDataArray->GetTuple(id); 
 //    std::cout << "id " << id << " diff: " << diff<< "\n"; 
     if (std::abs(diff) > tol_data) { 
-        residual.at(id) = diff - tol_data; 
+        linf_interPolate = (std::abs(diff) > linf_interPolate) ? std::abs(diff) : linf_interPolate;
+        residual.at(id) = diff; 
         cnt_resi ++;
     }
   }   
   
-  std::cout << "number of residuals to be saved: " << cnt_resi << " (" << ((double)cnt_resi) / ((double)N)*100.0 << "%)\n";
+  std::cout << "number of residuals to be saved: " << cnt_resi ;
+  std::cout << " (" << ((double)cnt_resi) / ((double)N)*100.0 << "%), ";
+  std::cout << "max interpolation error: " << linf_interPolate << "\n";
   double *residualRCT = (double *)malloc(sizeof(double)*N);
   size_t resi_cSize;
   // compress the residual
   switch (option) {
       case 1:
         { 
-          const size_t cBuffSize = ZSTD_compressBound(N);
+          const size_t cBuffSize = ZSTD_compressBound(N*sizeof(double));
           unsigned char *const zstd_resi = new unsigned char[cBuffSize];
-          resi_cSize = ZSTD_compress(zstd_resi, cBuffSize, (void *)residual.data(), N, 1);
+          resi_cSize = ZSTD_compress(zstd_resi, cBuffSize, (void *)residual.data(), N*sizeof(double), 1);
           ZSTD_decompress(residualRCT, N * sizeof(double), zstd_resi, resi_cSize);
           break;
         }
@@ -418,6 +421,7 @@ int main(int argc, char *argv[]) {
         {
           const mgard::CompressedDataset<1, double> encoded_resi =
             quantizeEncode(hierarchy, residual.data(), tol_resi); 
+          resi_cSize = encoded_resi.size();
           residualRCT = dequantizeDecode(encoded_resi);
           break;
         }
@@ -433,13 +437,16 @@ int main(int argc, char *argv[]) {
   }
   // verify the statisfication of error bound
   double l2_comb = 0.0, linf_comb = 0.0;
+  cnt_resi = 0;
   for (size_t id=0; id<N; id++) {
+    if (residualRCT[id] > 0) cnt_resi++;
     double combValue = interpoMGR.at(id) - residualRCT[id];
     double diff = std::abs(combValue - *pointDataArray->GetTuple(id));
     l2_comb += diff*diff;
     linf_comb = (diff > linf_comb) ? diff : linf_comb;
   }
   l2_comb = std::sqrt(l2_comb / N);
+  std::cout << "number of non-zero residuals after reconstruction: " << cnt_resi << "\n";
   std::cout << "residual compression ratio bytes: " << resi_cSize << ", compression ratio using tol (" << tol_resi <<"): " << (orignalDataSize) / ((double)resi_cSize) << "\n";
   std::cout << "combined compression ratio for 2D resampled data: " << (orignalDataSize) / ((double)resi_cSize + rcompressed.size()) << "\n";
   std::cout << "interpolated data's l2_err: " << l2_comb << ", linf_err: " << linf_comb << "\n";

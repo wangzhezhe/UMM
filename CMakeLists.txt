@@ -27,3 +27,5 @@ add_executable(resampleCompressRect resampleCompressRect.cpp)
 target_link_libraries(resampleCompressRect ${VTK_LIBRARIES} mgard::mgard)
 add_executable(resampleCompressInterp resampleCompressInterp.cpp)
 target_link_libraries(resampleCompressInterp ${VTK_LIBRARIES} mgard::mgard)
+
+add_subdirectory(ECR)

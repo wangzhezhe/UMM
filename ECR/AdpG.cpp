@@ -29,6 +29,7 @@ void ADPG::DivideRegion(vtkOctreePointLocatorNode *node, int *regionPointIds, in
   }
 
   // get to the maximal depth
+  // std::cout << "debug " << depth << std::endl;
   if (depth > this->m_maxDepth)
   {
     return;
@@ -43,9 +44,25 @@ void ADPG::DivideRegion(vtkOctreePointLocatorNode *node, int *regionPointIds, in
   // did not hit the return condition, continue to refine things
 
   node->CreateChildNodes();
+
   int numberOfPoints = node->GetNumberOfPoints();
 
+  std::cout << "debug DivideRegion " << numberOfPoints << std::endl;
+
+  double bounds[6];
+  // TODO there are some issues for getting bounds here
+  node->GetBounds(bounds);
+  std::cout << "debug DivideRegion bounds ";
+
+  for (int i = 0; i < 6; i++)
+  {
+    std::cout << bounds[i] << " ";
+  }
+  std::cout << std::endl;
+
   vtkDataSet *ds = this->m_dataset;
+
+  // ds->Print(std::cout);
 
   // there are 7 sub domains
   // each subdomain contains one list
@@ -58,10 +75,18 @@ void ADPG::DivideRegion(vtkOctreePointLocatorNode *node, int *regionPointIds, in
   for (i = 0; i < numberOfPoints; i++)
   {
     // check the current point, and to see it is located in which quadrant
+    double *temp = ds->GetPoint(regionPointIds[i]);
+    // std::cout << "debug point:" << regionPointIds[i] << " " << temp[0] << " " << temp[1] << " " << temp[2] << std::endl;
     int index = node->GetSubOctantIndex(ds->GetPoint(regionPointIds[i]), 0);
+    // std::cout << "index " << index << std::endl;
     if (index)
     {
       points[index - 1].push_back(regionPointIds[i]);
+    }
+    else if (index == 0)
+    {
+      // the first one?
+      regionPointIds[subOctantNumberOfPoints[0]] = regionPointIds[i];
     }
     else
     {
@@ -73,7 +98,7 @@ void ADPG::DivideRegion(vtkOctreePointLocatorNode *node, int *regionPointIds, in
 
   int counter = 0;
   int sizeOfInt = sizeof(int);
-  for (i = 0; i < 7; i++)
+  for (i = 0; i < 8; i++)
   {
     // how many points for each subregion
     counter += subOctantNumberOfPoints[i];
@@ -88,7 +113,20 @@ void ADPG::DivideRegion(vtkOctreePointLocatorNode *node, int *regionPointIds, in
   for (i = 0; i < 8; i++)
   {
     // go through each subregion
+    if (subOctantNumberOfPoints[i] == 0)
+    {
+      continue;
+    }
     node->GetChild(i)->SetNumberOfPoints(subOctantNumberOfPoints[i]);
+    std::cout << "depth " << depth << " debug point number " << i << " " << subOctantNumberOfPoints[i] << std::endl;
+    double childBounds[6];
+    node->GetChild(i)->GetBounds(childBounds);
+    std::cout << "depth " << depth << " bounds ";
+    for (int j = 0; j < 6; j++)
+    {
+      std::cout << childBounds[j] << " ";
+    }
+    std::cout << std::endl;
     this->DivideRegion(node->GetChild(i), regionPointIds + counter, depth + 1);
     counter += subOctantNumberOfPoints[i];
   }
@@ -106,7 +144,15 @@ void ADPG::BuildAdpGrid()
   int numPoints = this->m_dataset->GetNumberOfPoints();
 
   node->SetNumberOfPoints(numPoints);
-  node->SetDataBounds(bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
+
+  for (int i = 0; i < 6; i++)
+  {
+    std::cout << "debug bound " << i << " " << bounds[i] << std::endl;
+  }
+
+  // SetBounds will set the location for the data
+  // SetDataBounds will set the data contained by the point
+  node->SetBounds(bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
 
   this->m_subRegionIds = new int[numPoints];
   this->m_subRegionPoints = new float[3 * numPoints];
@@ -124,7 +170,7 @@ void ADPG::BuildAdpGrid()
   this->DivideRegion(node, this->m_subRegionIds, 0);
 }
 
-void ADPG::traverse(vtkOctreePointLocatorNode *node, vtkUnstructuredGrid *ugrid, std::vector<double[3]> &pointsCoord)
+void ADPG::traverse(vtkOctreePointLocatorNode *node, vtkUnstructuredGrid *ugrid, std::vector<std::array<double, 3>> &pointsCoord, int depth)
 {
   if (node == nullptr)
   {
@@ -145,8 +191,10 @@ void ADPG::traverse(vtkOctreePointLocatorNode *node, vtkUnstructuredGrid *ugrid,
   vtkIdType pid2 = sizeOffset + 2;
   vtkIdType pid3 = sizeOffset + 3;
 
+  // make sure there is no crossing line
   vtkIdType cellIds[4] = {pid0, pid1, pid2, pid3};
 
+  // std::cout << "insert cell id:" << pid0 << " " << pid1 << " " << pid2 << " " << pid3 << std::endl;
   ugrid->InsertNextCell(VTK_QUAD, 4, cellIds);
 
   // create the points coordinates
@@ -155,42 +203,61 @@ void ADPG::traverse(vtkOctreePointLocatorNode *node, vtkUnstructuredGrid *ugrid,
   // insert into the grid
   // refer to https://kitware.github.io/vtk-examples/site/Cxx/UnstructuredGrid/UGrid/
   // only test 2d case here
-  pointsCoord.push_back({bounds[0], bounds[0], 0});
-  pointsCoord.push_back({bounds[0], bounds[1], 0});
-  pointsCoord.push_back({bounds[1], bounds[0], 0});
-  pointsCoord.push_back({bounds[1], bounds[1], 0});
+
+  // std::cout << "debug traverse " << bounds[0] << " " << bounds[1] << std::endl;
+  double xmin = bounds[0];
+  double xmax = bounds[1];
+  double ymin = bounds[2];
+  double ymax = bounds[3];
+  double zmin = bounds[4];
+  double zmax = bounds[5];
+
+  std::cout << "traverse depth " << depth << " " << xmin << " " << xmax << " " << ymin << " " <<ymax << std::endl; 
+
+  // TODO change this for the 3d case
+  pointsCoord.push_back({xmin, ymin, 0});
+  pointsCoord.push_back({xmax, ymin, 0});
+  pointsCoord.push_back({xmax, ymax, 0});
+  pointsCoord.push_back({xmin, ymax, 0});
 
   // get children
   for (int i = 0; i < 8; i++)
   {
     // go through each subregion
-    traverse(node->GetChild(i), ugrid, pointsCoord);
+    if(node->GetChild(i)==nullptr){
+      continue;
+    }
+    if(node->GetChild(i)->GetNumberOfPoints()==0){
+      continue;
+    }
+    traverse(node->GetChild(i), ugrid, pointsCoord, depth+1);
   }
 
   // call the reverse for childrena
 }
 
-vtkUnstructuredGrid *ADPG::ConvertToUnstructuredGrid()
+vtkSmartPointer<vtkUnstructuredGrid> ADPG::ConvertToUnstructuredGrid()
 {
   if (this->m_Top == nullptr)
   {
     throw std::runtime_error("the m_Top is not supposed to be nullptr");
   }
 
-  vtkNew<vtkUnstructuredGrid> ugrid;
+  vtkSmartPointer<vtkUnstructuredGrid> ugrid = vtkSmartPointer<vtkUnstructuredGrid>::New();
 
-  std::vector<double[3]> pointsCoord;
+  std::vector<std::array<double, 3>> pointsCoord;
 
   // traverse the whole tree
-  traverse(this->m_Top, ugrid, pointsCoord);
+  traverse(this->m_Top, ugrid, pointsCoord, 0);
 
   // add one cell when we access one node
   vtkNew<vtkPoints> points;
   for (int i = 0; i < pointsCoord.size(); i++)
   {
-    points->InsertPoint(i, pointsCoord[i]);
+    double temp[3] = {pointsCoord[i][0], pointsCoord[i][1], pointsCoord[i][2]};
+    std::cout << "insert point id " << i << " " << temp[0] << " " << temp[1] << " " << temp[2] << std::endl;
+    points->InsertPoint(i, temp);
   }
-
   ugrid->SetPoints(points);
 
   return ugrid;

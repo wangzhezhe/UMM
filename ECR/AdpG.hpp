@@ -4,6 +4,8 @@
 #include <vtkOctreePointLocatorNode.h>
 #include <vtkDataSet.h>
 #include <vtkUnstructuredGrid.h>
+#include <vector>
+#include <array>
 
 class ADPG
 {
@@ -16,12 +18,12 @@ public:
     //TODO
     //ConvertToUniformGrid();
 
-    vtkUnstructuredGrid* ConvertToUnstructuredGrid();
+    vtkSmartPointer<vtkUnstructuredGrid> ConvertToUnstructuredGrid();
     //ECBuildAdpGrid() build the grid with error controlled
 
 private:
 
-    void traverse(vtkOctreePointLocatorNode *node, vtkUnstructuredGrid*ugrid, std::vector<double[3]> &pointsCoord);
+    void traverse(vtkOctreePointLocatorNode *node, vtkUnstructuredGrid*ugrid, std::vector<std::array<double,3>> &pointsCoord, int depth);
 
     // the condition to control when to stop the division
     int m_maxDepth;

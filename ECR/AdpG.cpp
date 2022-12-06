@@ -236,6 +236,13 @@ void ADPG::traverse(vtkOctreePointLocatorNode *node, vtkUnstructuredGrid *ugrid,
   // call the reverse for childrena
 }
 
+
+//refer to https://kitware.github.io/vtk-examples/site/Cxx/RectilinearGrid/RGrid/
+vtkSmartPointer<vtkRectilinearGrid> ADPG::ConvertToRectlinearGrid(){
+// go through the adp and conver to rectlinear grid
+
+}
+
 vtkSmartPointer<vtkUnstructuredGrid> ADPG::ConvertToUnstructuredGrid()
 {
   if (this->m_Top == nullptr)

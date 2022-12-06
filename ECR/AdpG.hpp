@@ -6,6 +6,7 @@
 #include <vtkUnstructuredGrid.h>
 #include <vector>
 #include <array>
+#include <vtkRectilinearGrid.h>
 
 class ADPG
 {
@@ -20,6 +21,8 @@ public:
 
     vtkSmartPointer<vtkUnstructuredGrid> ConvertToUnstructuredGrid();
     //ECBuildAdpGrid() build the grid with error controlled
+    vtkSmartPointer<vtkRectilinearGrid> ConvertToRectlinearGrid();
+
 
 private:
 
